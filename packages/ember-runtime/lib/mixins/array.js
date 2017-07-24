@@ -8,7 +8,6 @@
 //
 import { symbol } from 'ember-utils';
 
-import { peekMeta } from 'ember-metal';
 import Ember, { // ES6TODO: Ember.A
   get,
   computed,
@@ -21,11 +20,15 @@ import Ember, { // ES6TODO: Ember.A
   removeListener,
   sendEvent,
   hasListeners,
-  deprecate
+  _addBeforeObserver,
+  _removeBeforeObserver,
+  addObserver,
+  removeObserver,
+  meta,
+  peekMeta
 } from 'ember-metal';
-
+import { deprecate, assert } from 'ember-debug';
 import Enumerable from './enumerable';
-import EachProxy from '../system/each_proxy';
 
 function arrayObserversHelper(obj, target, opts, operation, notify) {
   let willChange = (opts && opts.willChange) || 'arrayWillChange';
@@ -138,19 +141,29 @@ export function arrayContentDidChange(array, startIdx, removeAmt, addAmt) {
 
   let meta = peekMeta(array);
   let cache = meta && meta.readableCache();
+  if (cache !== undefined) {
+    let length = get(array, 'length');
+    let addedAmount = (addAmt === -1 ? 0 : addAmt);
+    let removedAmount = (removeAmt === -1 ? 0 : removeAmt);
+    let delta = addedAmount - removedAmount;
+    let previousLength = length - delta;
 
-  if (cache) {
-    if (cache.firstObject !== undefined &&
-        objectAt(array, 0) !== cacheFor.get(cache, 'firstObject')) {
+    let normalStartIdx = startIdx < 0 ? previousLength + startIdx : startIdx;
+    if (cache.firstObject !== undefined && normalStartIdx === 0) {
       propertyWillChange(array, 'firstObject');
       propertyDidChange(array, 'firstObject');
     }
-    if (cache.lastObject !== undefined &&
-        objectAt(array, get(array, 'length') - 1) !== cacheFor.get(cache, 'lastObject')) {
-      propertyWillChange(array, 'lastObject');
-      propertyDidChange(array, 'lastObject');
-    }
+
+    if (cache.lastObject !== undefined) {
+      let previousLastIndex = previousLength - 1;
+      let lastAffectedIndex = normalStartIdx + removedAmount;
+      if (previousLastIndex < lastAffectedIndex) {
+        propertyWillChange(array, 'lastObject');
+        propertyDidChange(array, 'lastObject');
+      }
+   }
   }
+
   return array;
 }
 
@@ -305,7 +318,7 @@ const ArrayMixin = Mixin.create(Enumerable, {
     deprecate(
       '`Enumerable#contains` is deprecated, use `Enumerable#includes` instead.',
       false,
-      { id: 'ember-runtime.enumerable-contains', until: '3.0.0', url: 'http://emberjs.com/deprecations/v2.x#toc_enumerable-contains' }
+      { id: 'ember-runtime.enumerable-contains', until: '3.0.0', url: 'https://emberjs.com/deprecations/v2.x#toc_enumerable-contains' }
     );
 
     return this.indexOf(obj) >= 0;
@@ -625,5 +638,126 @@ const ArrayMixin = Mixin.create(Enumerable, {
     return this.__each;
   }).volatile().readOnly()
 });
+
+/**
+  This is the object instance returned when you get the `@each` property on an
+  array. It uses the unknownProperty handler to automatically create
+  EachArray instances for property names.
+  @class EachProxy
+  @private
+*/
+function EachProxy(content) {
+  this._content = content;
+  this._keys = undefined;
+  meta(this);
+}
+
+EachProxy.prototype = {
+  __defineNonEnumerable(property) {
+    this[property.name] = property.descriptor.value;
+  },
+
+  // ..........................................................
+  // ARRAY CHANGES
+  // Invokes whenever the content array itself changes.
+
+  arrayWillChange(content, idx, removedCnt, addedCnt) {
+    let keys = this._keys;
+    let lim = removedCnt > 0 ? idx + removedCnt : -1;
+    let meta;
+    for (let key in keys) {
+      meta = meta || peekMeta(this);
+      if (lim > 0) {
+        removeObserverForContentKey(content, key, this, idx, lim);
+      }
+      propertyWillChange(this, key, meta);
+    }
+  },
+
+  arrayDidChange(content, idx, removedCnt, addedCnt) {
+    let keys = this._keys;
+    let lim = addedCnt > 0 ? idx + addedCnt : -1;
+    let meta;
+    for (let key in keys) {
+      meta = meta || peekMeta(this);
+      if (lim > 0) {
+        addObserverForContentKey(content, key, this, idx, lim);
+      }
+      propertyDidChange(this, key, meta);
+    }
+  },
+
+  // ..........................................................
+  // LISTEN FOR NEW OBSERVERS AND OTHER EVENT LISTENERS
+  // Start monitoring keys based on who is listening...
+
+  willWatchProperty(property) {
+    this.beginObservingContentKey(property);
+  },
+
+  didUnwatchProperty(property) {
+    this.stopObservingContentKey(property);
+  },
+
+  // ..........................................................
+  // CONTENT KEY OBSERVING
+  // Actual watch keys on the source content.
+
+  beginObservingContentKey(keyName) {
+    let keys = this._keys;
+    if (!keys) {
+      keys = this._keys = Object.create(null);
+    }
+
+    if (!keys[keyName]) {
+      keys[keyName] = 1;
+      let content = this._content;
+      let len = get(content, 'length');
+
+      addObserverForContentKey(content, keyName, this, 0, len);
+    } else {
+      keys[keyName]++;
+    }
+  },
+
+  stopObservingContentKey(keyName) {
+    let keys = this._keys;
+    if (keys && (keys[keyName] > 0) && (--keys[keyName] <= 0)) {
+      let content = this._content;
+      let len     = get(content, 'length');
+
+      removeObserverForContentKey(content, keyName, this, 0, len);
+    }
+  },
+
+  contentKeyWillChange(obj, keyName) {
+    propertyWillChange(this, keyName);
+  },
+
+  contentKeyDidChange(obj, keyName) {
+    propertyDidChange(this, keyName);
+  }
+};
+
+function addObserverForContentKey(content, keyName, proxy, idx, loc) {
+  while (--loc >= idx) {
+    let item = objectAt(content, loc);
+    if (item) {
+      assert(`When using @each to observe the array ${content}, the array must return an object`, typeof item === 'object');
+      _addBeforeObserver(item, keyName, proxy, 'contentKeyWillChange');
+      addObserver(item, keyName, proxy, 'contentKeyDidChange');
+    }
+  }
+}
+
+function removeObserverForContentKey(content, keyName, proxy, idx, loc) {
+  while (--loc >= idx) {
+    let item = objectAt(content, loc);
+    if (item) {
+      _removeBeforeObserver(item, keyName, proxy, 'contentKeyWillChange');
+      removeObserver(item, keyName, proxy, 'contentKeyDidChange');
+    }
+  }
+}
 
 export default ArrayMixin;

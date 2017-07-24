@@ -75,7 +75,7 @@
 
   any passed value to `disabled` will disable it except `undefined`.
   to ensure that only `true` disable the `link-to` component you can
-  override the global behaviour of `Ember.LinkComponent`.
+  override the global behavior of `Ember.LinkComponent`.
 
   ```javascript
   Ember.LinkComponent.reopen({
@@ -307,14 +307,11 @@
 */
 
 import Logger from 'ember-console';
-
+import { assert, deprecate } from 'ember-debug';
 import {
-  assert,
-  deprecate,
   get,
   computed,
-  flaggedInstrument,
-  runInDebug
+  flaggedInstrument
 } from 'ember-metal';
 import {
   deprecatingAlias,
@@ -324,7 +321,7 @@ import {
 import { isSimpleClick } from 'ember-views';
 import layout from '../templates/link-to';
 import EmberComponent, { HAS_BLOCK } from '../component';
-
+import { DEBUG } from 'ember-env-flags';
 
 /**
   `Ember.LinkComponent` renders an element whose `click` event triggers a
@@ -339,7 +336,7 @@ import EmberComponent, { HAS_BLOCK } from '../component';
   @namespace Ember
   @extends Ember.Component
   @see {Ember.Templates.helpers.link-to}
-  @private
+  @public
 **/
 const LinkComponent = EmberComponent.extend({
   layout,
@@ -597,17 +594,19 @@ const LinkComponent = EmberComponent.extend({
   }),
 
   transitioningIn: computed('active', 'willBeActive', function computeLinkToComponentTransitioningIn() {
-    let willBeActive = get(this, 'willBeActive');
-    if (typeof willBeActive === 'undefined') { return false; }
-
-    return !get(this, 'active') && willBeActive && 'ember-transitioning-in';
+    if (get(this, 'willBeActive') === true && !get(this, 'active')) {
+      return 'ember-transitioning-in';
+    } else {
+      return false;
+    }
   }),
 
   transitioningOut: computed('active', 'willBeActive', function computeLinkToComponentTransitioningOut() {
-    let willBeActive = get(this, 'willBeActive');
-    if (typeof willBeActive === 'undefined') { return false; }
-
-    return get(this, 'active') && !willBeActive && 'ember-transitioning-out';
+    if (get(this, 'willBeActive') === false && get(this, 'active')) {
+      return 'ember-transitioning-out';
+    } else {
+      return false;
+    }
   }),
 
   /**
@@ -665,12 +664,13 @@ const LinkComponent = EmberComponent.extend({
   queryParams: null,
 
   qualifiedRouteName: computed('targetRouteName', '_routing.currentState', function computeLinkToComponentQualifiedRouteName() {
-    let params = get(this, 'params').slice();
-    let lastParam = params[params.length - 1];
+    let params = get(this, 'params');
+    let paramsLength = params.length;
+    let lastParam = params[paramsLength - 1];
     if (lastParam && lastParam.isQueryParams) {
-      params.pop();
+      paramsLength--;
     }
-    let onlyQueryParamsSupplied = (this[HAS_BLOCK] ? params.length === 0 : params.length === 1);
+    let onlyQueryParamsSupplied = (this[HAS_BLOCK] ? paramsLength === 0 : paramsLength === 1);
     if (onlyQueryParamsSupplied) {
       return get(this, '_routing.currentRouteName');
     }
@@ -713,7 +713,7 @@ const LinkComponent = EmberComponent.extend({
     let routing = get(this, '_routing');
     let queryParams = get(this, 'queryParams.values');
 
-    runInDebug(() => {
+    if (DEBUG) {
       /*
        * Unfortunately, to get decent error messages, we need to do this.
        * In some future state we should be able to use a "feature flag"
@@ -730,7 +730,7 @@ const LinkComponent = EmberComponent.extend({
       } catch (e) {
         assert('You attempted to define a `{{link-to "' + qualifiedRouteName + '"}}` but did not pass the parameters required for generating its dynamic segments. ' + e.message);
       }
-    });
+    }
 
     return routing.generateURL(qualifiedRouteName, models, queryParams);
   }),
@@ -797,13 +797,7 @@ const LinkComponent = EmberComponent.extend({
       params = params.slice();
     }
 
-    assert('You must provide one or more parameters to the link-to component.', (() => {
-      if (!params) {
-        return false;
-      }
-
-      return params.length;
-    })());
+    assert('You must provide one or more parameters to the link-to component.', params && params.length);
 
     let disabledWhen = get(this, 'disabledWhen');
     if (disabledWhen !== undefined) {

@@ -2,15 +2,13 @@
 @module ember
 @submodule ember-views
 */
-import { EmptyObject } from 'ember-utils';
 import { computed } from 'ember-metal';
 import { environment } from 'ember-environment';
 import Component from '../component';
 import layout from '../templates/empty';
 import { TextSupport } from 'ember-views';
 
-let inputTypeTestElement;
-const inputTypes = new EmptyObject();
+const inputTypes = Object.create(null);
 function canSetTypeOfInput(type) {
   if (type in inputTypes) {
     return inputTypes[type];
@@ -24,13 +22,13 @@ function canSetTypeOfInput(type) {
     return type;
   }
 
-  if (!inputTypeTestElement) {
-    inputTypeTestElement = document.createElement('input');
-  }
+  let inputTypeTestElement = document.createElement('input');
 
   try {
     inputTypeTestElement.type = type;
-  } catch (e) { }
+  } catch (e) {
+    // ignored
+  }
 
   return inputTypes[type] = inputTypeTestElement.type === type;
 }

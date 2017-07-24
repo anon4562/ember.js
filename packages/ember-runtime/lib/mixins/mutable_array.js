@@ -13,12 +13,12 @@ const EMPTY = [];
 
 import {
   get,
-  Error as EmberError,
   Mixin
 } from 'ember-metal';
 import EmberArray, { objectAt } from './array';
 import MutableEnumerable from './mutable_enumerable';
 import Enumerable from './enumerable';
+import { Error as EmberError } from 'ember-debug';
 
 export function removeAt(array, start, len) {
   if ('number' === typeof start) {
@@ -85,9 +85,9 @@ export default Mixin.create(EmberArray, MutableEnumerable, {
     ```javascript
     let colors = ['red', 'green', 'blue'];
 
-    color.length();   //  3
-    colors.clear();   //  []
-    colors.length();  //  0
+    colors.length;  // 3
+    colors.clear(); // []
+    colors.length;  // 0
     ```
 
     @method clear

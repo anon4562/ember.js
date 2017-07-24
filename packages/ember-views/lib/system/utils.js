@@ -13,11 +13,14 @@ export function isSimpleClick(event) {
   return !modifier && !secondaryClick;
 }
 
-export const STYLE_WARNING = '' +
-  'Binding style attributes may introduce cross-site scripting vulnerabilities; ' +
-  'please ensure that values being bound are properly escaped. For more information, ' +
-  'including how to disable this warning, see ' +
-  'http://emberjs.com/deprecations/v1.x/#toc_binding-style-attributes.';
+export function constructStyleDeprecationMessage(affectedStyle) {
+  return '' +
+    'Binding style attributes may introduce cross-site scripting vulnerabilities; ' +
+    'please ensure that values being bound are properly escaped. For more information, ' +
+    'including how to disable this warning, see ' +
+    'https://emberjs.com/deprecations/v1.x/#toc_binding-style-attributes. ' +
+    'Style affected: "' + affectedStyle + '"';
+}
 
 /**
   @private
@@ -155,7 +158,7 @@ export function getViewClientRects(view) {
   `getViewBoundingClientRect` provides information about the position of the
   bounding border box edges of a view relative to the viewport.
 
-  It is only intended to be used by development tools like the Ember Inpsector
+  It is only intended to be used by development tools like the Ember Inspector
   and may not work on older browsers.
 
   @private

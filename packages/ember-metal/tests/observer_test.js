@@ -6,30 +6,22 @@ import {
   _addBeforeObserver,
   _suspendObserver,
   _suspendObservers,
-  _removeBeforeObserver
-} from '../observer';
-import {
+  _removeBeforeObserver,
   propertyWillChange,
-  propertyDidChange
-} from '../property_events';
-import { defineProperty } from '../properties';
-import {
+  propertyDidChange,
+  defineProperty,
   computed,
-  cacheFor
-} from '../computed';
-import {
+  cacheFor,
   Mixin,
   mixin,
   observer,
   _beforeObserver,
-  _immediateObserver
-} from '../mixin';
-import run from '../run_loop';
-import {
+  _immediateObserver,
+  run,
   beginPropertyChanges,
   endPropertyChanges,
   changeProperties
-} from '../property_events';
+} from '..';
 
 function K() {}
 
@@ -38,6 +30,18 @@ function K() {}
 //
 
 QUnit.module('addObserver');
+
+testBoth('observer should assert to invalid input', function(get, set) {
+  expectAssertion(()=> {
+    observer(()=>{})
+  }, 'Ember.observer called without valid path');
+
+  expectDeprecation('Passing the dependentKeys after the callback function in Ember.observer is deprecated. Ensure the callback function is the last argument.')
+
+  expectAssertion(()=> {
+    observer(null)
+  }, 'Ember.observer called without a function');
+})
 
 testBoth('observer should fire when property is modified', function(get, set) {
   let obj = {};

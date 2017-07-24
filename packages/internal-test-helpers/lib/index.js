@@ -27,3 +27,11 @@ export { default as ApplicationTestCase } from './test-cases/application';
 export { default as QueryParamTestCase } from './test-cases/query-param';
 export { default as AbstractRenderingTestCase } from './test-cases/abstract-rendering';
 export { default as RenderingTestCase } from './test-cases/rendering';
+export { default as RouterTestCase } from './test-cases/router';
+export { default as AutobootApplicationTestCase } from './test-cases/autoboot-application';
+export { default as DefaultResolverApplicationTestCase } from './test-cases/default-resolver-application';
+
+export {
+  default as TestResolver,
+  ModuleBasedResolver as ModuleBasedTestResolver
+} from './test-resolver';

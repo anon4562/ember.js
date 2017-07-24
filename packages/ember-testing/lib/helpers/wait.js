@@ -30,7 +30,7 @@ import { pendingRequests } from '../test/pending_requests';
 
   @method wait
   @param {Object} value The value to be returned.
-  @return {RSVP.Promise}
+  @return {RSVP.Promise<any>} Promise that resolves to the passed value.
   @public
   @since 1.0.0
 */
@@ -41,7 +41,7 @@ export default function wait(app, value) {
     // Every 10ms, poll for the async thing to have finished
     let watcher = setInterval(() => {
       // 1. If the router is loading, keep polling
-      let routerIsLoading = router.router && !!router.router.activeTransition;
+      let routerIsLoading = router._routerMicrolib && !!router._routerMicrolib.activeTransition;
       if (routerIsLoading) { return; }
 
       // 2. If there are pending Ajax requests, keep polling

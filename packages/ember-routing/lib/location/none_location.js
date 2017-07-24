@@ -1,8 +1,8 @@
 import {
-  assert,
   get,
   set
 } from 'ember-metal';
+import { assert } from 'ember-debug';
 import { Object as EmberObject } from 'ember-runtime';
 
 /**
@@ -16,10 +16,14 @@ import { Object as EmberObject } from 'ember-runtime';
   don't want it to muck with the URL (for example when you embed your
   application in a larger page).
 
+  Using `NoneLocation` causes Ember to not store the applications URL state
+  in the actual URL. This is generally used for testing purposes, and is one
+  of the changes made when calling `App.setupForTesting()`.
+
   @class NoneLocation
   @namespace Ember
   @extends Ember.Object
-  @private
+  @protected
 */
 export default EmberObject.extend({
   implementation: 'none',
@@ -56,7 +60,7 @@ export default EmberObject.extend({
     rootURL = rootURL.replace(/\/$/, '');
 
     // remove rootURL from url
-    return path.replace(new RegExp('^' + rootURL + '(?=/|$)'), '');
+    return path.replace(new RegExp(`^${rootURL}(?=/|$)`), '');
   },
 
   /**

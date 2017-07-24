@@ -1,7 +1,3 @@
-'no use strict';
-// Remove "use strict"; from transpiled module until
-// https://bugs.webkit.org/show_bug.cgi?id=138038 is fixed
-
 import {
   watch,
   unwatch
@@ -19,14 +15,13 @@ import {
 export function addDependentKeys(desc, obj, keyName, meta) {
   // the descriptor has a list of dependent keys, so
   // add all of its dependent keys.
-  let idx, depKey;
   let depKeys = desc._dependentKeys;
-  if (!depKeys) {
+  if (depKeys === null || depKeys === undefined) {
     return;
   }
 
-  for (idx = 0; idx < depKeys.length; idx++) {
-    depKey = depKeys[idx];
+  for (let idx = 0; idx < depKeys.length; idx++) {
+    let depKey = depKeys[idx];
     // Increment the number of times depKey depends on keyName.
     meta.writeDeps(depKey, keyName, (meta.peekDeps(depKey, keyName) || 0) + 1);
     // Watch the depKey
@@ -38,7 +33,7 @@ export function removeDependentKeys(desc, obj, keyName, meta) {
   // the descriptor has a list of dependent keys, so
   // remove all of its dependent keys.
   let depKeys = desc._dependentKeys;
-  if (!depKeys) {
+  if (depKeys === null || depKeys === undefined) {
     return;
   }
 

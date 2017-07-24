@@ -1,14 +1,17 @@
 import {
-  assert,
-  deprecate,
   get,
   set,
   computed,
+  ComputedProperty,
   isEmpty,
   isNone,
   alias,
   expandProperties
 } from 'ember-metal';
+import {
+  assert,
+  deprecate
+} from 'ember-debug';
 
 /**
 @module ember
@@ -33,10 +36,10 @@ function expandPropertiesToArray(predicateName, properties) {
 }
 
 function generateComputedWithPredicate(name, predicate) {
-  return function(...properties) {
+  return (...properties) => {
     let expandedProperties = expandPropertiesToArray(name, properties);
 
-    let computedFunc = computed(function() {
+    let computedFunc = new ComputedProperty(function() {
       let lastIdx = expandedProperties.length - 1;
 
       for (let i = 0; i < lastIdx; i++) {
@@ -47,9 +50,9 @@ function generateComputedWithPredicate(name, predicate) {
       }
 
       return get(this, expandedProperties[lastIdx]);
-    });
+    }, { dependentKeys: expandedProperties });
 
-    return computedFunc.property.apply(computedFunc, expandedProperties);
+    return computedFunc;
   };
 }
 
@@ -82,7 +85,7 @@ function generateComputedWithPredicate(name, predicate) {
   @public
 */
 export function empty(dependentKey) {
-  return computed(dependentKey + '.length', function() {
+  return computed(`${dependentKey}.length`, function() {
     return isEmpty(get(this, dependentKey));
   });
 }
@@ -113,7 +116,7 @@ export function empty(dependentKey) {
   @public
 */
 export function notEmpty(dependentKey) {
-  return computed(dependentKey + '.length', function() {
+  return computed(`${dependentKey}.length`, function() {
     return !isEmpty(get(this, dependentKey));
   });
 }
@@ -460,9 +463,7 @@ export function lte(dependentKey, value) {
   a logical `and` on the values of all the original values for properties.
   @public
 */
-export let and = generateComputedWithPredicate('and', function(value) {
-  return value;
-});
+export let and = generateComputedWithPredicate('and', value => value);
 
 /**
   A computed property which performs a logical `or` on the
@@ -499,9 +500,7 @@ export let and = generateComputedWithPredicate('and', function(value) {
   a logical `or` on the values of all the original values for properties.
   @public
 */
-export let or = generateComputedWithPredicate('or', function(value) {
-  return !value;
-});
+export let or = generateComputedWithPredicate('or', value => !value);
 
 /**
   Creates a new property that is an alias for another property

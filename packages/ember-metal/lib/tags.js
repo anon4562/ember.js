@@ -1,7 +1,6 @@
-import { CONSTANT_TAG, DirtyableTag } from 'glimmer-reference';
+import { CONSTANT_TAG, DirtyableTag } from '@glimmer/reference';
 import { meta as metaFor } from './meta';
 import require from 'require';
-import { isProxy } from './is_proxy';
 
 let hasViews = () => false;
 
@@ -14,24 +13,22 @@ function makeTag() {
 }
 
 export function tagForProperty(object, propertyKey, _meta) {
-  if (isProxy(object)) {
-    return tagFor(object, _meta);
+  if (typeof object !== 'object' || object === null) { return CONSTANT_TAG; }
+
+  let meta = _meta || metaFor(object);
+  if (meta.isProxy()) {
+    return tagFor(object, meta);
   }
 
-  if (typeof object === 'object' && object) {
-    let meta = _meta || metaFor(object);
-    let tags = meta.writableTags();
-    let tag = tags[propertyKey];
-    if (tag) { return tag; }
+  let tags = meta.writableTags();
+  let tag = tags[propertyKey];
+  if (tag) { return tag; }
 
-    return tags[propertyKey] = makeTag();
-  } else {
-    return CONSTANT_TAG;
-  }
+  return tags[propertyKey] = makeTag();
 }
 
 export function tagFor(object, _meta) {
-  if (typeof object === 'object' && object) {
+  if (typeof object === 'object' && object !== null) {
     let meta = _meta || metaFor(object);
     return meta.writableTag(makeTag);
   } else {
@@ -40,34 +37,35 @@ export function tagFor(object, _meta) {
 }
 
 export function markObjectAsDirty(meta, propertyKey) {
-  let objectTag = meta && meta.readableTag();
+  let objectTag = meta.readableTag();
 
-  if (objectTag) {
+  if (objectTag !== undefined) {
     objectTag.dirty();
   }
 
-  let tags = meta && meta.readableTags();
-  let propertyTag = tags && tags[propertyKey];
+  let tags = meta.readableTags();
+  let propertyTag = tags !== undefined ? tags[propertyKey] : undefined;
 
-  if (propertyTag) {
+  if (propertyTag !== undefined) {
     propertyTag.dirty();
   }
 
-  if (objectTag || propertyTag) {
+  if (propertyKey === 'content' && meta.isProxy()) {
+    objectTag.contentDidChange();
+  }
+
+  if (objectTag !== undefined || propertyTag !== undefined) {
     ensureRunloop();
   }
 }
 
-let run;
-
-function K() {}
-
+let backburner;
 function ensureRunloop() {
-  if (!run) {
-    run = require('ember-metal/run_loop').default;
+  if (backburner === undefined) {
+    backburner = require('ember-metal').run.backburner;
   }
 
-  if (hasViews() && !run.backburner.currentInstance) {
-    run.schedule('actions', K);
+  if (hasViews()) {
+    backburner.ensureInstance();
   }
 }

@@ -24,29 +24,21 @@
   @class TransformInputTypeSyntax
 */
 
-export default function TransformInputTypeSyntax() {
-  // set later within Glimmer2 to the syntax package
-  this.syntax = null;
-}
+export default function transformInputTypeSyntax(env) {
+  let b = env.syntax.builders;
 
-/**
-  @private
-  @method transform
-  @param {AST} ast The AST to be transformed.
-*/
-TransformInputTypeSyntax.prototype.transform = function TransformInputTypeSyntax_transform(ast) {
-  let { traverse, builders: b } = this.syntax;
+  return {
+    name: 'transform-input-type-syntax',
 
-  traverse(ast, {
-    MustacheStatement(node) {
-      if (isInput(node)) {
-        insertTypeHelperParameter(node, b);
+    visitors: {
+      MustacheStatement(node) {
+        if (isInput(node)) {
+          insertTypeHelperParameter(node, b);
+        }
       }
     }
-  });
-
-  return ast;
-};
+  };
+}
 
 function isInput(node) {
   return node.path.original === 'input';
@@ -62,6 +54,6 @@ function insertTypeHelperParameter(node, builders) {
     }
   }
   if (pair && pair.value.type !== 'StringLiteral') {
-    node.params.unshift(builders.sexpr('-input-type', [builders.path(pair.value.original, pair.loc)], null, pair.loc));
+    node.params.unshift(builders.sexpr('-input-type', [pair.value], null, pair.loc));
   }
 }
